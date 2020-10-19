@@ -4,7 +4,8 @@
 import * as Result from './result';
 type Result<T, E> = import('./result').Result<T, E>;
 
-import { curry1, isVoid } from './utils';
+import { curry1, isVoid } from './-private/utils';
+import type { AnyFunction } from './-private/utils';
 
 /**
   Discriminant for the `Just` and `Nothing` variants.
@@ -365,7 +366,7 @@ export class Just<T> implements MaybeShape<T> {
 
   @private
  */
-let NOTHING: Nothing<any>;
+let NOTHING: Nothing<unknown>;
 
 /**
   A `Nothing` instance is the *absent* variant instance of the
@@ -404,12 +405,14 @@ export class Nothing<T> implements MaybeShape<T> {
 
     @throws      If you pass `null` or `undefined`.
    */
+  // Intentionally allowing `null` constructor.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(_?: null) {
     if (!NOTHING) {
       NOTHING = this;
     }
 
-    return NOTHING;
+    return NOTHING as Nothing<T>;
   }
 
   /** Method variant for [`Maybe.isJust`](../modules/_maybe_.html#isjust) */
@@ -616,9 +619,10 @@ export function just<T = unknown>(value?: T | null): Maybe<T> {
   @typeparam T The type of the item contained in the `Maybe`.
   @returns     An instance of `Maybe.Nothing<T>`.
  */
+// Intentionally allowing `null` constructor.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function nothing<T = unknown>(_?: null): Maybe<T> {
-  if (!NOTHING) NOTHING = new Nothing();
-  return NOTHING;
+  return new Nothing();
 }
 
 /**
@@ -1054,7 +1058,7 @@ export const unsafeGet = unsafelyUnwrap;
  */
 export function unwrapOr<T>(defaultValue: T, maybe: Maybe<T>): T;
 export function unwrapOr<T>(defaultValue: T): (maybe: Maybe<T>) => T;
-export function unwrapOr<T>(defaultValue: T, maybe?: Maybe<T>) {
+export function unwrapOr<T>(defaultValue: T, maybe?: Maybe<T>): T | ((maybe: Maybe<T>) => T) {
   const op = (m: Maybe<T>) => (m.isJust() ? m.value : defaultValue);
   return curry1(op, maybe);
 }
@@ -1091,9 +1095,7 @@ export const getOr = unwrapOr;
   @returns        Either the content of `maybe` or the value returned from
                   `orElseFn`.
  */
-export function unwrapOrElse<T>(orElseFn: () => T, maybe: Maybe<T>): T;
-export function unwrapOrElse<T>(orElseFn: () => T): (maybe: Maybe<T>) => T;
-export function unwrapOrElse<T>(orElseFn: () => T, maybe?: Maybe<T>): T | ((maybe: Maybe<T>) => T) {
+function unwrapOrElse<T>(orElseFn: () => T, maybe: Maybe<T>): T {
   const op = (m: Maybe<T>) => (m.isJust() ? m.value : orElseFn());
   return curry1(op, maybe);
 }
@@ -1156,7 +1158,7 @@ export function toOkOrElseErr<T, E>(
   @param result The `Result` to construct a `Maybe` from.
   @returns      `Just` if `result` was `Ok` or `Nothing` if it was `Err`.
  */
-export function fromResult<T>(result: Result<T, any>): Maybe<T> {
+export function fromResult<T>(result: Result<T, unknown>): Maybe<T> {
   return result.isOk() ? just(result.value) : nothing<T>();
 }
 
@@ -1288,13 +1290,13 @@ export function equals<T>(mb: Maybe<T>): (ma: Maybe<T>) => boolean;
 export function equals<T>(mb: Maybe<T>, ma?: Maybe<T>): boolean | ((a: Maybe<T>) => boolean) {
   return ma !== undefined
     ? ma.match({
-        Just: aVal => mb.isJust() && mb.unsafelyUnwrap() === aVal,
+        Just: (aVal) => mb.isJust() && mb.unsafelyUnwrap() === aVal,
         Nothing: () => isNothing(mb),
       })
     : (maybeA: Maybe<T>) =>
         maybeA.match({
           Nothing: () => isNothing(mb),
-          Just: aVal => mb.isJust() && mb.unsafelyUnwrap() === aVal,
+          Just: (aVal) => mb.isJust() && mb.unsafelyUnwrap() === aVal,
         });
 }
 
@@ -1465,7 +1467,7 @@ export function ap<T, U>(
 ): Maybe<U> | ((val: Maybe<T>) => Maybe<U>) {
   const op = (m: Maybe<T>) =>
     m.match({
-      Just: val => maybeFn.map(fn => fn(val)),
+      Just: (val) => maybeFn.map((fn) => fn(val)),
       Nothing: () => nothing<U>(),
     });
 
@@ -1477,7 +1479,7 @@ export function ap<T, U>(
 
   @param item The item to check.
  */
-export function isInstance<T = any>(item: any): item is Maybe<T> {
+export function isInstance(item: unknown): item is Maybe<unknown> {
   return item instanceof Just || item instanceof Nothing;
 }
 
@@ -1618,21 +1620,18 @@ export function last<T>(array: Array<T | null | undefined>): Maybe<T> {
 
   @param maybes The `Maybe`s to resolve to a single `Maybe`.
  */
-export function all<T extends Array<Maybe<any>>>(...maybes: T): All<T> {
-  let result: All<T> = just([] as Maybe<any>[]) as All<T>;
-  maybes.forEach(maybe => {
-    result = result.andThen(accumulatedMaybes =>
-      maybe.map(m => {
-        accumulatedMaybes.push(m);
-        return accumulatedMaybes;
-      })
-    ) as All<T>;
-  });
-
-  return result;
+export function all<T extends Array<Maybe<U>>, U>(...maybes: T): Maybe<Array<U>> {
+  return maybes.reduce(
+    (result, maybe) =>
+      result.andThen((maybes) =>
+        maybe.match({
+          Just: (v) => just(maybes.concat(v)),
+          Nothing: () => nothing(),
+        })
+      ),
+    just([])
+  );
 }
-
-type All<T extends Array<Maybe<any>>> = T extends Array<Maybe<infer U>> ? Maybe<Array<U>> : never;
 
 /**
   Given a tuple of `Maybe`s, return a `Maybe` of the tuple values.
@@ -1671,19 +1670,20 @@ type All<T extends Array<Maybe<any>>> = T extends Array<Maybe<infer U>> ? Maybe<
 
   @param maybes: the tuple of `Maybe`s to convert to a `Maybe` of tuple values.
  */
-// @ts-ignore -- this doesn't type-check, but it is correct!
-export function tuple<T>(maybes: [Maybe<T>]): Maybe<[T]>;
-export function tuple<T, U>(maybes: [Maybe<T>, Maybe<U>]): Maybe<[T, U]>;
-export function tuple<T, U, V>(maybes: [Maybe<T>, Maybe<U>, Maybe<V>]): Maybe<[T, U, V]>;
-export function tuple<T, U, V, W>(
+
+export function _tuple<T>(maybes: [Maybe<T>]): Maybe<[T]>;
+export function _tuple<T, U>(maybes: [Maybe<T>, Maybe<U>]): Maybe<[T, U]>;
+export function _tuple<T, U, V>(maybes: [Maybe<T>, Maybe<U>, Maybe<V>]): Maybe<[T, U, V]>;
+export function _tuple<T, U, V, W>(
   maybes: [Maybe<T>, Maybe<U>, Maybe<V>, Maybe<W>]
 ): Maybe<[T, U, V, W]>;
-export function tuple<T, U, V, W, X>(
+export function _tuple<T, U, V, W, X>(
   maybes: [Maybe<T>, Maybe<U>, Maybe<V>, Maybe<W>, Maybe<X>]
 ): Maybe<[T, U, V, W, X]> {
-  // @ts-ignore -- this doesn't type-check, but it works correctly.
   return all(...maybes);
 }
+
+const x = all(just('hello'), nothing<number>());
 
 /**
   Safely extract a key from an object, returning `Just` if the key has a value
@@ -1870,7 +1870,7 @@ export function get<T, K extends keyof T>(
   @param fn The function to transform; the resulting function will have the
             exact same signature except for its return type.
  */
-export function wrapReturn<F extends (...args: any[]) => any>(
+export function wrapReturn<F extends AnyFunction>(
   fn: F
 ): (...args: Parameters<F>) => Maybe<NonNullable<ReturnType<F>>> {
   return (...args: Parameters<F>) => of(fn(...args)) as Maybe<NonNullable<ReturnType<F>>>;

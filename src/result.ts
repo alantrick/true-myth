@@ -5,10 +5,10 @@ import * as Maybe from './maybe';
 type Maybe<T> = import('./maybe').Maybe<T>;
 
 import Unit from './unit';
-import { _Brand, curry1, isVoid } from './utils';
+import { Brand, curry1, isVoid } from './-private/utils';
 
 // So that it doesn't appear unused but can be exported.
-_Brand; // tslint:disable-line:no-unused-expression
+Brand;
 
 /**
   Discriminant for `Ok` and `Err` variants of `Result` type.
@@ -132,7 +132,7 @@ export class Ok<T, E> implements ResultShape<T, E> {
     }
     ```
    */
-  static unwrap<O>(theOk: Ok<O, any>): O {
+  static unwrap<O>(theOk: Ok<O, unknown>): O {
     return theOk.value;
   }
 
@@ -322,7 +322,7 @@ export class Err<T, E> implements ResultShape<T, E> {
     }
     ```
    */
-  static unwrapErr<F>(theErr: Err<F, any>): F {
+  static unwrapErr<F>(theErr: Err<F, unknown>): F {
     return theErr.error;
   }
 
@@ -960,7 +960,7 @@ export function and<T, U, E>(
   andResult: Result<U, E>,
   result?: Result<T, E>
 ): Result<U, E> | ((result: Result<T, E>) => Result<U, E>) {
-  const op = (r: Result<T, E>) => (isOk(r) ? andResult : (r as Err<any, E>));
+  const op = (r: Result<T, E>) => (isOk(r) ? andResult : r);
   return curry1(op, result);
 }
 
@@ -1021,7 +1021,7 @@ export function andThen<T, U, E>(
   thenFn: (t: T) => Result<U, E>,
   result?: Result<T, E>
 ): Result<U, E> | ((result: Result<T, E>) => Result<U, E>) {
-  const op = (r: Result<T, E>) => (isOk(r) ? thenFn(r.value) : (r as Err<any, E>));
+  const op = (r: Result<T, E>) => (isOk(r) ? thenFn(r.value) : (r as Err<unknown, E>));
   return curry1(op, result);
 }
 
@@ -1067,7 +1067,7 @@ export function or<T, E, F>(
   defaultResult: Result<T, F>,
   result?: Result<T, E>
 ): Result<T, F> | ((result: Result<T, E>) => Result<T, F>) {
-  const op = (r: Result<T, E>) => (isOk(r) ? (r as Ok<T, any>) : defaultResult);
+  const op = (r: Result<T, E>) => (isOk(r) ? r : defaultResult);
   return curry1(op, result);
 }
 
@@ -1099,7 +1099,7 @@ export function orElse<T, E, F>(
   elseFn: (err: E) => Result<T, F>,
   result?: Result<T, E>
 ): Result<T, F> | ((result: Result<T, E>) => Result<T, F>) {
-  const op = (r: Result<T, E>) => (isOk(r) ? (r as Ok<T, any>) : elseFn(r.unsafelyUnwrapErr()));
+  const op = (r: Result<T, E>) => (isOk(r) ? r : elseFn(r.unsafelyUnwrapErr()));
   return curry1(op, result);
 }
 
@@ -1607,7 +1607,7 @@ export function ap<T, U, E>(
 
   @param item The item to check.
  */
-export function isInstance<T = any, E = any>(item: any): item is Result<T, E> {
+export function isInstance(item: unknown): item is Result<unknown, unknown> {
   return item instanceof Ok || item instanceof Err;
 }
 

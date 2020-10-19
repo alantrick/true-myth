@@ -1,7 +1,7 @@
 import { just, nothing } from '../src/maybe';
 import Result, { Ok, Variant, Err } from '../src/result';
 import Unit from '../src/unit';
-import { AndThenAliases } from '../src/utils';
+import { AndThenAliases } from '../src/-private/utils';
 import { assertType } from './lib/assert';
 
 const length = (x: { length: number }) => x.length;
@@ -366,16 +366,16 @@ describe('`Result` pure functions', () => {
   });
 
   test('isInstance', () => {
-    const ok: any = Result.ok('yay');
+    const ok: unknown = Result.ok('yay');
     expect(Result.isInstance(ok)).toBe(true);
 
-    const err: any = Result.err('oh no');
+    const err: unknown = Result.err('oh no');
     expect(Result.isInstance(err)).toBe(true);
 
-    const nada: any = null;
+    const nada: unknown = null;
     expect(Result.isInstance(nada)).toBe(false);
 
-    const obj: any = { random: 'nonsense' };
+    const obj: unknown = { random: 'nonsense' };
     expect(Result.isInstance(obj)).toBe(false);
   });
 });
@@ -386,25 +386,25 @@ describe('`Result` pure functions', () => {
 test('narrowing', () => {
   const oneOk = Result.ok();
   if (oneOk.isOk()) {
-    assertType<Ok<Unit, any>>(oneOk);
+    assertType<Ok<Unit, unknown>>(oneOk);
     expect(oneOk.value).toBeDefined();
   }
 
   const anotherOk = Result.ok();
   if (anotherOk.variant === Variant.Ok) {
-    assertType<Ok<Unit, any>>(anotherOk);
+    assertType<Ok<Unit, unknown>>(anotherOk);
     expect(anotherOk.value).toBeDefined();
   }
 
   const oneErr = Result.err();
   if (oneErr.isErr()) {
-    assertType<Err<any, Unit>>(oneErr);
+    assertType<Err<unknown, Unit>>(oneErr);
     expect(oneErr.error).toBeDefined();
   }
 
   const anotherErr = Result.err();
   if (anotherErr.variant === Variant.Err) {
-    assertType<Err<any, Unit>>(anotherErr);
+    assertType<Err<unknown, Unit>>(anotherErr);
     expect(anotherErr.error).toBeDefined();
   }
 
@@ -417,7 +417,7 @@ describe('`Result.Ok` class', () => {
     assertType<Result<number, string>>(fullyQualifiedOk);
 
     const unqualifiedOk = new Result.Ok('string');
-    assertType<Result<string, any>>(unqualifiedOk);
+    assertType<Result<string, unknown>>(unqualifiedOk);
 
     expect(() => new Result.Ok(null)).toThrow();
     expect(() => new Result.Ok(undefined)).toThrow();
@@ -590,7 +590,7 @@ describe('`Result.Err` class', () => {
     assertType<Result<string, number>>(fullyQualifiedErr);
 
     const unqualifiedErr = new Result.Err('string');
-    assertType<Result<any, string>>(unqualifiedErr);
+    assertType<Result<unknown, string>>(unqualifiedErr);
 
     expect(() => new Result.Err(null)).toThrow();
     expect(() => new Result.Err(undefined)).toThrow();
@@ -625,7 +625,7 @@ describe('`Result.Err` class', () => {
   });
 
   test('`mapOr` method', () => {
-    const errValue: number = 42;
+    const errValue = 42;
     const theErr: Result<number, number> = new Result.Err(errValue);
     const theDefault = 'victory!';
     const describe = (code: number) => `The error code was ${code}`;
@@ -634,9 +634,9 @@ describe('`Result.Err` class', () => {
   });
 
   test('`mapOrElse` method', () => {
-    const errValue: number = 42;
+    const errValue = 42;
     const theErr: Result<number, number> = new Result.Err(errValue);
-    const getDefault = (valueFromErr: typeof errValue) => `whoa: ${valueFromErr}`;
+    const getDefault = (valueFromErr: number) => `whoa: ${valueFromErr}`;
     const describe = (code: number) => `The error code was ${code}`;
 
     expect(theErr.mapOrElse(getDefault, describe)).toEqual(`whoa: ${errValue}`);
@@ -655,9 +655,9 @@ describe('`Result.Err` class', () => {
   });
 
   test('`mapErr` method', () => {
-    const errValue: string = 'fubar';
+    const errValue = 'fubar';
     const theErr = new Result.Err(errValue);
-    const elaborate = (reason: typeof errValue) => `The problem was: ${reason}`;
+    const elaborate = (reason: string) => `The problem was: ${reason}`;
     const expected = new Result.Err(elaborate(errValue));
 
     expect(theErr.mapErr(elaborate)).toEqual(expected);
@@ -679,7 +679,7 @@ describe('`Result.Err` class', () => {
     const getAnOk = (strings: string[]) => Result.ok<number, number>(length(strings));
     expect(theErr[method](getAnOk)).toEqual(theErr);
 
-    const getAnErr = (_: any) => Result.err(0);
+    const getAnErr = () => Result.err(0);
     expect(theErr[method](getAnErr)).toEqual(theErr);
   };
 

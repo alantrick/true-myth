@@ -1,4 +1,5 @@
-import Maybe, { Variant, Nothing, Just, Matcher } from '../src/maybe';
+import Maybe, { Variant, Just, Matcher } from '../src/maybe';
+import type { Nothing } from '../src/maybe';
 import { err, ok } from '../src/result';
 import { assertType } from './lib/assert';
 import { Unit } from '../src/unit';
@@ -156,7 +157,7 @@ describe('`Maybe` pure functions', () => {
     const aNothing: Maybe<string> = Maybe.nothing();
 
     const matcher: Matcher<string, string> = {
-      Just: val => val + ', yo',
+      Just: (val) => val + ', yo',
       Nothing: () => 'rats, nothing',
     };
 
@@ -169,19 +170,19 @@ describe('`Maybe` pure functions', () => {
   test('`and`', () => {
     const aJust = Maybe.just(42);
     const anotherJust = Maybe.just('a string');
-    const aNothing: Maybe<{}> = Maybe.nothing();
+    const aNothing: Maybe<unknown> = Maybe.nothing();
     expect(Maybe.and(anotherJust, aJust)).toBe(anotherJust);
 
     expect(Maybe.and(aNothing, aJust)).toEqual(aNothing);
     expect(Maybe.and(aNothing, aJust)).toEqual(aNothing);
     expect(Maybe.and(aNothing, aNothing)).toEqual(aNothing);
 
-    expect(Maybe.and<number, {}>(aNothing)(aJust)).toEqual(Maybe.and(aNothing, aJust));
+    expect(Maybe.and<number, unknown>(aNothing)(aJust)).toEqual(Maybe.and(aNothing, aJust));
   });
 
   const andThenTest = (fn: AndThenAliases) => () => {
     const toMaybeNumber = (x: string) => Maybe.just(Number(x));
-    const toNothing = (_: string) => Maybe.nothing<number>();
+    const toNothing = () => Maybe.nothing<number>();
 
     const theValue = '42';
     const theJust = Maybe.just(theValue);
@@ -348,7 +349,7 @@ describe('`Maybe` pure functions', () => {
   });
 
   test('isInstance', () => {
-    const something: any = Maybe.just('yay');
+    const something: unknown = Maybe.just('yay');
     expect(Maybe.isInstance(something)).toBe(true);
 
     const nothing = Maybe.nothing();
@@ -408,13 +409,13 @@ describe('`Maybe` pure functions', () => {
     test('with basic types', () => {
       type ExpectedOutputType = Maybe<Array<string | number>>;
 
-      let onlyJusts = [Maybe.just(2), Maybe.just('three')];
-      let onlyJustsAll = Maybe.all(...onlyJusts);
+      const onlyJusts = [Maybe.just(2), Maybe.just('three')];
+      const onlyJustsAll = Maybe.all(...onlyJusts);
       assertType<ExpectedOutputType>(onlyJustsAll);
       expect(onlyJustsAll).toEqual(Maybe.just([2, 'three']));
 
-      let hasNothing = [Maybe.just(2), Maybe.nothing<string>()];
-      let hasNothingAll = Maybe.all(...hasNothing);
+      const hasNothing = [Maybe.just(2), Maybe.nothing<string>()];
+      const hasNothingAll = Maybe.all(...hasNothing);
       assertType<ExpectedOutputType>(hasNothingAll);
       expect(hasNothingAll).toEqual(Maybe.nothing());
     });
@@ -422,8 +423,8 @@ describe('`Maybe` pure functions', () => {
     test('with arrays', () => {
       type ExpectedOutputType = Maybe<Array<number | string[]>>;
 
-      let nestedArrays = [Maybe.just(1), Maybe.just(['two', 'three'])];
-      let nestedArraysAll = Maybe.all(...nestedArrays);
+      const nestedArrays = [Maybe.just(1), Maybe.just(['two', 'three'])];
+      const nestedArraysAll = Maybe.all(...nestedArrays);
 
       assertType<ExpectedOutputType>(nestedArraysAll);
       expect(nestedArraysAll).toEqual(Maybe.just([1, ['two', 'three']]));
@@ -432,12 +433,12 @@ describe('`Maybe` pure functions', () => {
 
   test('`tuple`', () => {
     type Tuple2 = [Maybe<string>, Maybe<number>];
-    let invalid: Tuple2 = [Maybe.just('wat'), Maybe.nothing()];
+    const invalid: Tuple2 = [Maybe.just('wat'), Maybe.nothing()];
     const invalidResult = Maybe.tuple(invalid);
     expect(invalidResult).toEqual(Maybe.nothing());
 
     type Tuple3 = [Maybe<string>, Maybe<number>, Maybe<{ neat: string }>];
-    let valid: Tuple3 = [Maybe.just('hey'), Maybe.just(4), Maybe.just({ neat: 'yeah' })];
+    const valid: Tuple3 = [Maybe.just('hey'), Maybe.just(4), Maybe.just({ neat: 'yeah' })];
     const result = Maybe.tuple(valid);
     expect(result).toEqual(Maybe.just(['hey', 4, { neat: 'yeah' }]));
     assertType<Maybe<[string, number, { neat: string }]>>(result);
@@ -445,29 +446,29 @@ describe('`Maybe` pure functions', () => {
 
   test('`property`', () => {
     type Person = { name?: string };
-    let chris: Person = { name: 'chris' };
+    const chris: Person = { name: 'chris' };
     expect(Maybe.property('name', chris)).toEqual(Maybe.just(chris.name));
 
-    let nobody: Person = {};
+    const nobody: Person = {};
     expect(Maybe.property('name', nobody)).toEqual(Maybe.nothing());
 
     type Dict<T> = { [key: string]: T };
-    let dict: Dict<string> = { quux: 'warble' };
+    const dict: Dict<string> = { quux: 'warble' };
     expect(Maybe.property('quux', dict)).toEqual(Maybe.just('warble'));
     expect(Maybe.property('wat', dict)).toEqual(Maybe.nothing());
   });
 
   test('`get`', () => {
     type Person = { name?: string };
-    let chris: Person = { name: 'chris' };
-    let justChris: Maybe<Person> = Maybe.just(chris);
+    const chris: Person = { name: 'chris' };
+    const justChris: Maybe<Person> = Maybe.just(chris);
     expect(Maybe.get('name', justChris)).toEqual(Maybe.just(chris.name));
 
-    let nobody: Maybe<Person> = Maybe.nothing();
+    const nobody: Maybe<Person> = Maybe.nothing();
     expect(Maybe.get('name', nobody)).toEqual(Maybe.nothing());
 
     type Dict<T> = { [key: string]: T };
-    let dict = Maybe.just({ quux: 'warble' } as Dict<string>);
+    const dict = Maybe.just({ quux: 'warble' } as Dict<string>);
     expect(Maybe.get('quux', dict)).toEqual(Maybe.just('warble'));
     expect(Maybe.get('wat', dict)).toEqual(Maybe.nothing());
   });
@@ -515,12 +516,12 @@ test('narrowing', () => {
 
   const oneNothing = Maybe.nothing();
   if (oneNothing.isNothing()) {
-    assertType<Nothing<any>>(oneNothing);
+    assertType<Nothing<unknown>>(oneNothing);
   }
 
   const anotherNothing = Maybe.nothing();
   if (anotherNothing.variant === Variant.Nothing) {
-    assertType<Nothing<any>>(anotherNothing);
+    assertType<Nothing<unknown>>(anotherNothing);
   }
 
   expect('this type checked, hooray').toBeTruthy();
@@ -586,7 +587,7 @@ describe('`Maybe.Just` class', () => {
 
     expect(
       theJust.match({
-        Just: val => val + ', yo',
+        Just: (val) => val + ', yo',
         Nothing: () => 'rats, nothing',
       })
     ).toEqual('this is a string, yo');
@@ -623,7 +624,7 @@ describe('`Maybe.Just` class', () => {
     const toDescription = (dict: { [key: string]: string }) =>
       new Maybe.Just(
         Object.keys(dict)
-          .map(key => `${dict[key]} is a ${key}`)
+          .map((key) => `${dict[key]} is a ${key}`)
           .join('\n')
       );
 
@@ -769,7 +770,7 @@ describe('`Maybe.Nothing` class', () => {
 
     expect(
       nietzsche.match({
-        Just: s => s + ', yo',
+        Just: (s) => s + ', yo',
         Nothing: () => soDeepMan,
       })
     ).toBe(soDeepMan);
@@ -889,6 +890,6 @@ test('`Maybe` classes interacting', () => {
   expect(mapped).not.toBeInstanceOf(Maybe.Just);
 
   const anotherMaybe: Maybe<number> = Maybe.just(10);
-  const anotherMapped = anotherMaybe.mapOr('nada', n => `The number was ${n}`);
+  const anotherMapped = anotherMaybe.mapOr('nada', (n) => `The number was ${n}`);
   expect(anotherMapped).toEqual('The number was 10');
 });
